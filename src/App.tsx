@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useAnalyzer } from './hooks/useAnalyzer'
 import { useTheme } from './hooks/useTheme'
 import { useFilters } from './hooks/useFilters'
@@ -21,6 +21,7 @@ import { CompareDashboard } from './components/CompareDashboard'
 import { HelpPanel } from './components/HelpPanel'
 import { ShortcutHelp } from './components/ShortcutHelp'
 import { ProveIt } from './components/ProveIt'
+import { demoHar } from './cli/demo'
 
 export function App() {
   return (
@@ -45,6 +46,18 @@ function AppInner() {
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false)
   const [compareNames, setCompareNames] = useState<[string, string]>(['', ''])
+
+  // Auto-load demo HAR when ?demo=true is in the URL
+  const demoLoaded = useRef(false)
+  useEffect(() => {
+    if (demoLoaded.current) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('demo') === 'true') {
+      demoLoaded.current = true
+      setFileName('demo.har')
+      analyzeHar(JSON.stringify(demoHar))
+    }
+  }, [analyzeHar])
 
   const entries = analysis.result?.entries ?? []
   const {

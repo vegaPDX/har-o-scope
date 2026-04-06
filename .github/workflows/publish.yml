@@ -1,0 +1,62 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  offline-zip:
+    name: Offline ZIP
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Build browser UI with relative paths (works from file://)
+      - run: npx vite build --base ./
+
+      # Bundle into ZIP with launcher scripts
+      - name: Create offline ZIP
+        run: |
+          mkdir -p offline/har-o-scope
+          cp -r dist/index.html dist/assets dist/fonts offline/har-o-scope/ 2>/dev/null || true
+          cp scripts/open-har-o-scope.sh offline/har-o-scope/
+          cp scripts/open-har-o-scope.bat offline/har-o-scope/
+          chmod +x offline/har-o-scope/open-har-o-scope.sh
+          cd offline
+          zip -r ../har-o-scope-offline.zip har-o-scope/
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            har-o-scope-offline.zip \
+            --clobber
