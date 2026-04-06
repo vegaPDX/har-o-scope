@@ -70,7 +70,8 @@
     "check": "tsc --noEmit && vitest run"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "react-window": "^2.2.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
