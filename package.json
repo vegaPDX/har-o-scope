@@ -1,0 +1,91 @@
+{
+  "name": "har-o-scope",
+  "version": "0.1.0",
+  "description": "Zero-trust intelligent HAR file analyzer. Drop a HAR file, get instant diagnosis.",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "author": "vegaPDX",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vegaPDX/har-o-scope"
+  },
+  "keywords": [
+    "har",
+    "http-archive",
+    "network-analysis",
+    "performance",
+    "web-performance",
+    "devtools",
+    "diagnostics",
+    "waterfall",
+    "security",
+    "sanitizer"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js"
+    },
+    "./analyze": {
+      "types": "./dist/lib/analyze.d.ts",
+      "import": "./dist/lib/analyze.js"
+    },
+    "./diff": {
+      "types": "./dist/lib/diff.d.ts",
+      "import": "./dist/lib/diff.js"
+    },
+    "./sanitize": {
+      "types": "./dist/lib/sanitizer.d.ts",
+      "import": "./dist/lib/sanitizer.js"
+    },
+    "./validate": {
+      "types": "./dist/lib/validator.d.ts",
+      "import": "./dist/lib/validator.js"
+    },
+    "./health-score": {
+      "types": "./dist/lib/health-score.d.ts",
+      "import": "./dist/lib/health-score.js"
+    }
+  },
+  "bin": {
+    "har-o-scope": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist/lib",
+    "dist/cli",
+    "rules"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:lib": "tsc -p tsconfig.lib.json",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit",
+    "check": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/har-format": "^1.2.16",
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "jsdom": "^26.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "vitest": "^3.1.2"
+  }
+}
