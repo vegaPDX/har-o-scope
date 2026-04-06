@@ -1,0 +1,292 @@
+# Generic issue detection rules for har-o-scope.
+# 16 YAML rules (+ 1 TypeScript rule: unbatched-api-calls).
+# Zero platform-specific content. Works with any web application.
+
+rules:
+
+  # ── Server ──────────────────────────────────────────────────────
+
+  slow-ttfb:
+    category: server
+    severity: warning
+    severity_escalation:
+      critical_threshold: 5
+    inherits: ["is_not_streaming", "is_not_websocket"]
+    title: "{count} request{s} with slow TTFB (> 800ms)"
+    description: "{count} requests had Time To First Byte exceeding 800ms. This indicates server-side processing delays, slow database queries, or backend bottlenecks."
+    recommendation: "Investigate server-side processing time. Check database query performance, API response times, and server resource utilization. Consider caching frequently requested resources."
+    condition:
+      match_all:
+        - field: "timings.wait"
+          gt: 800
+    impact:
+      field: "timings.wait"
+      baseline: 200
+    root_cause_weight:
+      server: 3
+
+  # ── Network ─────────────────────────────────────────────────────
+
+  stalled-requests:
+    category: network
+    severity: warning
+    severity_escalation:
+      critical_threshold: 10
+    inherits: ["is_not_streaming", "is_not_websocket"]
+    title: "{count} stalled request{s} (blocked > 1000ms)"
+    description: "{count} requests spent over 1 second waiting in the browser's connection queue. This often indicates HTTP/1.1 connection saturation (6 connections per domain limit)."
+    recommendation: "Reduce concurrent requests to the same domain. Enable HTTP/2 to multiplex requests over a single connection. Consider domain sharding as a last resort for HTTP/1.1."
+    condition:
+      match_all:
+        - field: "timings.blocked"
+          gt: 1000
+    impact:
+      field: "timings.blocked"
+    root_cause_weight:
+      client: 3
+
+  slow-dns:
+    category: network
+    severity: warning
+    severity_escalation:
+      critical_threshold: 5
+    title: "{count} request{s} with slow DNS lookup (> 100ms)"
+    description: "{count} requests had DNS resolution times exceeding 100ms. This suggests slow DNS resolvers or many unique domains being resolved."
+    recommendation: "Consider using a faster DNS provider (e.g., 1.1.1.1, 8.8.8.8). Reduce the number of unique domains. Use dns-prefetch hints for critical third-party domains."
+    condition:
+      match_all:
+        - field: "timings.dns"
+          gt: 100
+    impact:
+      field: "timings.dns"
+    root_cause_weight:
+      network: 3
+
+  slow-tls:
+    category: network
+    severity: warning
+    title: "{count} request{s} with slow TLS handshake (> 200ms)"
+    description: "{count} requests had TLS negotiation times exceeding 200ms. This may indicate geographic distance to the server, certificate chain issues, or missing OCSP stapling."
+    recommendation: "Check server TLS configuration. Enable OCSP stapling. Consider using a CDN to reduce round-trip distance. Verify the certificate chain is minimal."
+    condition:
+      match_all:
+        - field: "timings.ssl"
+          gt: 200
+    impact:
+      field: "timings.ssl"
+      baseline: 50
+    root_cause_weight:
+      network: 2
+
+  http1-downgrade:
+    category: network
+    severity: info
+    severity_escalation:
+      warning_ratio: 0.5
+    inherits: ["is_not_websocket"]
+    title: "{count} request{s} using HTTP/1.1"
+    description: "{count} requests used HTTP/1.1 instead of HTTP/2 or HTTP/3. HTTP/1.1 limits browsers to 6 concurrent connections per domain, causing request queueing on busy pages."
+    recommendation: "Ensure your server supports HTTP/2. Check if a corporate proxy or VPN is forcing an HTTP/1.1 downgrade. Most modern servers and CDNs support HTTP/2 by default."
+    condition:
+      match_all:
+        - field: "httpVersion"
+          not_matches: "h2|h3|HTTP/2|HTTP/3"
+        - field: "httpVersion"
+          not_equals: "unknown"
+    impact:
+      value: 0
+    root_cause_weight:
+      network: 2
+
+  connection-reuse:
+    category: network
+    severity: warning
+    min_count: 3
+    inherits: ["is_not_websocket"]
+    title: "Poor connection reuse: {count} new TCP connections"
+    description: "{count} requests established new TCP connections (connect time > 0). Reusing existing connections avoids the overhead of TCP handshake + TLS negotiation."
+    recommendation: "Ensure Connection: keep-alive is enabled. Reduce the number of unique domains. Enable HTTP/2 for multiplexed connections."
+    condition:
+      match_all:
+        - field: "timings.connect"
+          gt: 0
+    impact:
+      field: "timings.connect"
+    root_cause_weight:
+      network: 2
+
+  # ── Optimization ────────────────────────────────────────────────
+
+  missing-compression:
+    category: optimization
+    severity: info
+    severity_escalation:
+      warning_threshold: 11
+    title: "{count} text response{s} without compression"
+    description: "{count} text-based responses are not using gzip, Brotli, or other compression. Compressed responses are typically 60-80% smaller."
+    recommendation: "Enable gzip or Brotli compression on the server for text-based responses (HTML, CSS, JS, JSON, XML). Most web servers support this with a single configuration change."
+    condition:
+      match_all:
+        - field: "entry.response.content.mimeType"
+          matches: "text|javascript|json|xml|html|css"
+        - field: "contentSize"
+          gt: 1024
+        - no_response_header:
+            name: "content-encoding"
+            value_matches: "gzip|br|deflate|zstd"
+    impact:
+      value: 0
+
+  missing-cache-headers:
+    category: optimization
+    severity: info
+    inherits: ["is_static_resource"]
+    title: "{count} static resource{s} without cache headers"
+    description: "{count} static resources (scripts, styles, images, fonts) lack Cache-Control, ETag, or Last-Modified headers. The browser cannot cache these effectively and will re-fetch on every page load."
+    recommendation: "Add Cache-Control headers to static resources. Use max-age=31536000 with content-hashed filenames for immutable assets. Add ETag or Last-Modified for conditional revalidation."
+    condition:
+      match_all:
+        - no_response_header:
+            name: "cache-control"
+        - no_response_header:
+            name: "etag"
+        - no_response_header:
+            name: "last-modified"
+    impact:
+      value: 0
+
+  large-payload:
+    category: optimization
+    severity: info
+    severity_escalation:
+      warning_threshold: 5
+    title: "{count} oversized resource{s} (> 1 MB)"
+    description: "{count} responses exceeded 1 MB in transfer size. Large payloads slow down page loads, especially on slower connections."
+    recommendation: "Optimize large resources: compress images (WebP/AVIF), minify JS/CSS, paginate large API responses, lazy-load below-the-fold content."
+    condition:
+      match_all:
+        - field: "transferSizeResolved"
+          gt: 1048576
+    impact:
+      value: 0
+
+  cors-preflight:
+    category: optimization
+    severity: info
+    severity_escalation:
+      warning_threshold: 10
+    min_count: 3
+    title: "{count} CORS preflight request{s}"
+    description: "{count} OPTIONS preflight requests were sent before the actual requests. Each preflight adds a full round-trip of latency."
+    recommendation: "Configure Access-Control-Max-Age headers to cache preflight responses. Simplify requests to avoid triggering preflights (use simple methods and headers where possible)."
+    condition:
+      match_all:
+        - field: "entry.request.method"
+          equals: "OPTIONS"
+    impact:
+      field: "timings.total"
+
+  excessive-cookies:
+    category: optimization
+    severity: warning
+    title: "Excessive Set-Cookie headers on {count} response{s}"
+    description: "{count} responses included Set-Cookie headers. Cookies are sent with every subsequent request, increasing bandwidth usage. Large cookie payloads can also trigger warnings from server infrastructure."
+    recommendation: "Audit cookie usage. Use sessionStorage or localStorage for client-only data. Set appropriate cookie domains and paths to limit cookie scope. Consider using a cookieless domain for static assets."
+    condition:
+      match_all:
+        - has_response_header:
+            name: "set-cookie"
+    min_count: 10
+    impact:
+      value: 0
+
+  redirect-chains:
+    category: performance
+    severity: warning
+    min_count: 3
+    title: "{count} redirect{s} detected"
+    description: "{count} requests resulted in redirects (301, 302, 303, 307, 308). Each redirect adds a full round-trip. Chains of 3+ redirects significantly impact page load time."
+    recommendation: "Eliminate unnecessary redirects. Update links to point directly to the final URL. Use 301 (permanent) redirects where appropriate so browsers cache the redirect."
+    condition:
+      match_all:
+        - field: "entry.response.status"
+          in: [301, 302, 303, 307, 308]
+    impact:
+      field: "timings.total"
+    root_cause_weight:
+      server: 1
+      network: 1
+
+  # ── Security ────────────────────────────────────────────────────
+
+  mixed-content:
+    category: security
+    severity: critical
+    prerequisite:
+      any_entry_matches:
+        field: "entry.request.url"
+        matches: "^https://"
+    title: "{count} mixed content request{s} (HTTP on HTTPS page)"
+    description: "{count} requests were made over insecure HTTP from a secure HTTPS page. Browsers may block these requests or show security warnings."
+    recommendation: "Update all resource URLs to use HTTPS. Configure Content-Security-Policy with upgrade-insecure-requests. Check for hardcoded HTTP URLs in your code."
+    condition:
+      match_all:
+        - field: "entry.request.url"
+          matches: "^http://"
+        - field: "entry.request.url"
+          not_matches: "^http://localhost|^http://127\\.0\\.0\\.1|^http://\\[::1\\]"
+    impact:
+      value: 0
+    root_cause_weight:
+      client: 2
+
+  # ── Errors ──────────────────────────────────────────────────────
+
+  broken-resources:
+    category: errors
+    severity: critical
+    title: "{count} broken resource{s} (HTTP 4xx/5xx)"
+    description: "{count} requests returned error status codes. 4xx errors indicate client-side issues (missing resources, unauthorized access). 5xx errors indicate server failures."
+    recommendation: "Review the failing URLs. Fix 404s by updating links or deploying missing assets. Investigate 500s in server logs. Check 403s for permission or CORS issues."
+    condition:
+      match_all:
+        - field: "entry.response.status"
+          gte: 400
+    impact:
+      value: 0
+    root_cause_weight:
+      server: 2
+      client: 1
+
+  # ── Informational ───────────────────────────────────────────────
+
+  long-poll-detected:
+    category: informational
+    severity: info
+    title: "{count} long-poll or SSE connection{s} detected"
+    description: "{count} requests appear to be long-polling or Server-Sent Events connections (high wait time with small response body, or text/event-stream MIME type). These are expected behavior, not performance issues."
+    recommendation: "No action needed. Long-polling and SSE are legitimate real-time communication patterns. They will appear as slow requests in waterfall charts but are working as designed."
+    condition:
+      match_all:
+        - field: "isLongPoll"
+          equals: true
+    impact:
+      value: 0
+
+  # ── Aggregate ───────────────────────────────────────────────────
+
+  excessive-requests:
+    type: aggregate
+    category: client
+    severity: warning
+    severity_escalation:
+      critical_threshold: 500
+    aggregate_condition:
+      min_entries: 200
+    title: "High request count: {total} requests"
+    description: "This page made {total} HTTP requests. High request counts degrade performance, especially on HTTP/1.1 connections where browsers limit concurrent connections to 6 per domain."
+    recommendation: "Reduce request count by bundling scripts and styles, using CSS sprites or SVG icons, lazy-loading below-the-fold resources, and eliminating unnecessary analytics or tracking calls."
+    impact:
+      value: 0
+    root_cause_weight:
+      client: 5
