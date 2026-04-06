@@ -1,0 +1,28 @@
+# Reusable condition fragments for generic rules.
+# Reference by name in a rule's `inherits` array.
+
+conditions:
+
+  is_not_streaming:
+    field: "isLongPoll"
+    equals: false
+
+  is_not_websocket:
+    field: "resourceType"
+    not_equals: "websocket"
+
+  is_http1:
+    field: "httpVersion"
+    matches: "^HTTP/1"
+
+  is_success_status:
+    field: "entry.response.status"
+    gte: 200
+
+  is_text_content:
+    field: "entry.response.content.mimeType"
+    matches: "text|javascript|json|xml|html|css"
+
+  is_static_resource:
+    field: "resourceType"
+    in: ["script", "stylesheet", "image", "font"]

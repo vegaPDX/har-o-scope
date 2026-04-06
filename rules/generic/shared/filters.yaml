@@ -1,0 +1,12 @@
+# Noise exclusion patterns for generic rules.
+# Reference by name in a rule's `exclude` array.
+
+filters:
+
+  analytics_tracking:
+    field: "entry.request.url"
+    matches: "google-analytics|googletagmanager|mixpanel|facebook.*/tr|linkedin.*/px|doubleclick|segment\\.io|amplitude"
+
+  status_0_or_cancelled:
+    field: "entry.response.status"
+    equals: 0
