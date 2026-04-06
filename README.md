@@ -26,7 +26,7 @@ Open [har-o-scope](https://vegaPDX.github.io/har-o-scope/) and drop a `.har` fil
 - Request waterfall with timing breakdown
 - Categorized findings with fix recommendations
 - Before/after diff comparison
-- Export to JSON, CSV, or Markdown
+- Export to JSON, CSV, Markdown, or self-contained HTML
 
 Works offline. Dark mode. Keyboard shortcuts (`?` to see them all).
 
@@ -50,7 +50,7 @@ X [critical] 5 requests with slow TTFB (> 800ms)
 ### Commands
 
 ```bash
-# Output formats: text, json, markdown, sarif
+# Output formats: text, json, markdown, html, sarif
 har-o-scope analyze recording.har --format json
 
 # CI mode with exit codes and GitHub annotations

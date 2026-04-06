@@ -30,6 +30,10 @@ export type { ValidationResult, ValidationError } from './types.js'
 // Parsing / Normalization (useful for advanced consumers)
 export { parseHar, normalizeHar } from './normalizer.js'
 
+// HTML Report
+export { generateHtmlReport } from './html-report.js'
+export type { HtmlReportOptions } from './html-report.js'
+
 // Errors
 export { HarError, HAR_ERRORS, RULE_ERRORS, CLI_ERRORS, createWarning } from './errors.js'
 export type { AnalysisWarning } from './types.js'

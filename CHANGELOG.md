@@ -48,6 +48,7 @@ First release. Complete analysis library, browser UI, and CLI.
 - Colored terminal output with automatic TTY detection
 
 **Infrastructure (Phase 4)**
+- Self-contained HTML report export (browser UI + CLI `--format html`)
 - GitHub Actions CI: lint, test (ubuntu/windows/macos), build, bundle size budget, pack integration test
 - npm publish workflow with provenance on release tags
 - GitHub Pages deployment of browser UI

@@ -236,6 +236,45 @@ interface ScoreBreakdown {
 
 ---
 
+## generateHtmlReport
+
+Generate a self-contained HTML report with health score, findings, and recommendations. No external dependencies. Opens in any browser. Dark mode via `prefers-color-scheme`.
+
+```typescript
+function generateHtmlReport(
+  result: AnalysisResult,
+  healthScore: HealthScore,
+  options?: HtmlReportOptions,
+): string
+```
+
+**Parameters:**
+- `result` — Full analysis result
+- `healthScore` — Health score from `computeHealthScore`
+- `options.title` — Custom report title (default: `"HAR Analysis Report"`)
+
+**Returns:** A complete HTML document as a string. Includes inlined CSS, health score SVG donut, all findings sorted by severity, and root cause classification.
+
+**Example:**
+
+```typescript
+import { analyze, computeHealthScore, generateHtmlReport } from 'har-o-scope'
+import { readFile, writeFile } from 'node:fs/promises'
+
+const har = JSON.parse(await readFile('recording.har', 'utf-8'))
+const result = analyze(har)
+const score = computeHealthScore(result)
+const html = generateHtmlReport(result, score, { title: 'Deploy Check' })
+await writeFile('report.html', html)
+```
+
+Also available via CLI:
+```bash
+har-o-scope analyze recording.har --format html > report.html
+```
+
+---
+
 ## parseHar / normalizeHar
 
 Lower-level functions for advanced consumers.

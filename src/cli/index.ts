@@ -23,6 +23,7 @@ import { loadBuiltinRules, loadCustomRules } from './rules.js'
 import { demoHar } from './demo.js'
 import { formatText, formatJson, formatMarkdown, formatCi, formatDiffText, formatDiffJson, formatDiffMarkdown } from './formatters.js'
 import { formatSarif } from './sarif.js'
+import { generateHtmlReport } from '../lib/html-report.js'
 
 const VERSION = '0.1.0'
 
@@ -118,6 +119,9 @@ async function runAnalyze(file: string | undefined, opts: {
         break
       case 'markdown':
         output(formatMarkdown(result, score))
+        break
+      case 'html':
+        output(generateHtmlReport(result, score))
         break
       default:
         output(formatText(result, score, opts.verbose))
@@ -231,7 +235,7 @@ program
   .command('analyze')
   .argument('[file]', 'HAR file to analyze')
   .description('Analyze a HAR file for performance and security issues')
-  .option('-f, --format <format>', 'Output format: text, json, markdown', 'text')
+  .option('-f, --format <format>', 'Output format: text, json, markdown, html', 'text')
   .option('--sarif', 'Output SARIF 2.1.0 JSON')
   .option('--ci', 'Output GitHub-compatible annotations')
   .option('--baseline <file>', 'Compare against a baseline HAR file')
@@ -246,7 +250,7 @@ program
   .command('diff')
   .arguments('<before> <after>')
   .description('Compare two HAR files for regressions and improvements')
-  .option('-f, --format <format>', 'Output format: text, json, markdown', 'text')
+  .option('-f, --format <format>', 'Output format: text, json, markdown, html', 'text')
   .option('--no-color', 'Disable colored output')
   .action(runDiff)
 
