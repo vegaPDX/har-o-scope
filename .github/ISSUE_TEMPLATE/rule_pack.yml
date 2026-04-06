@@ -1,0 +1,44 @@
+name: Rule Pack Proposal
+description: Propose a new set of detection rules for a specific domain or framework
+labels: ["rules", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rule packs are collections of YAML rules targeting a specific platform, framework, or use case.
+
+  - type: input
+    id: name
+    attributes:
+      label: Rule pack name
+      description: Short name for the rule pack
+      placeholder: "nextjs, wordpress, spa-performance"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What does this rule pack detect?
+      description: Describe the types of issues these rules would find.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rules
+    attributes:
+      label: Proposed rules
+      description: |
+        List the rules you'd include. For each rule, describe what it detects and why it matters.
+      placeholder: |
+        1. `nextjs-ssr-waterfall` - Detect SSR requests that create a waterfall pattern
+        2. `nextjs-large-page-data` - Page data props exceeding 128KB
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example YAML (optional)
+      description: Draft YAML for one or more rules if you have them.
+      render: yaml

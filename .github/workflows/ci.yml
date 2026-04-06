@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    name: Build
+    needs: [typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # Performance budget: browser JS bundle must stay under 250KB gzipped
+      - name: Bundle size budget
+        run: |
+          SIZE=$(find dist/assets -name '*.js' -exec cat {} + | gzip -c | wc -c)
+          KB=$((SIZE / 1024))
+          echo "::notice::Gzipped JS bundle: ${KB}KB (budget: 250KB)"
+          if [ "$KB" -gt 250 ]; then
+            echo "::error::Bundle size ${KB}KB exceeds 250KB budget"
+            exit 1
+          fi
+
+      # Verify the npm package works when installed from a tarball
+      - name: npm pack integration test
+        run: |
+          npm pack
+          TARBALL=$(ls har-o-scope-*.tgz)
+
+          mkdir /tmp/pack-test && cd /tmp/pack-test
+          echo '{"type":"module"}' > package.json
+          npm install "$GITHUB_WORKSPACE/$TARBALL"
+
+          # Library root export
+          node -e "import { analyze, computeHealthScore } from 'har-o-scope'; console.log('Root exports: OK')"
+
+          # Subpath exports
+          node -e "import { analyze } from 'har-o-scope/analyze'; console.log('analyze: OK')"
+          node -e "import { diff } from 'har-o-scope/diff'; console.log('diff: OK')"
+          node -e "import { sanitize } from 'har-o-scope/sanitize'; console.log('sanitize: OK')"
+          node -e "import { validate } from 'har-o-scope/validate'; console.log('validate: OK')"
+          node -e "import { computeHealthScore } from 'har-o-scope/health-score'; console.log('health-score: OK')"
+
+          # CLI binary
+          npx har-o-scope --version
+
+          # Demo analysis (exit 1=warnings, 2=critical are expected; >2 is a real error)
+          set +e
+          npx har-o-scope analyze --demo --format json > /dev/null
+          EXIT=$?
+          set -e
+          if [ "$EXIT" -gt 2 ]; then echo "::error::CLI exited $EXIT"; exit 1; fi
+
+          echo "Pack test: PASSED"
+
+      # Dry-run publish to catch packaging issues early
+      - name: Publish dry run
+        if: github.event_name == 'pull_request'
+        run: npm publish --dry-run

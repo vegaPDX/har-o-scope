@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { AnalysisResult, HealthScore } from '../lib/types'
+import { generateHtmlReport } from '../lib/html-report'
 import { useToast } from './Toast'
 
 interface ExportButtonsProps {
@@ -8,7 +9,7 @@ interface ExportButtonsProps {
   fileName: string
 }
 
-type ExportFormat = 'json' | 'csv' | 'markdown'
+type ExportFormat = 'json' | 'csv' | 'markdown' | 'html'
 
 function generateJson(result: AnalysisResult, healthScore: HealthScore): string {
   return JSON.stringify({
@@ -108,6 +109,9 @@ export function ExportButtons({ result, healthScore, fileName }: ExportButtonsPr
       case 'markdown':
         download(generateMarkdown(result, healthScore, fileName), `${baseName}-report.md`, 'text/markdown')
         break
+      case 'html':
+        download(generateHtmlReport(result, healthScore, { title: `${fileName} — Analysis Report` }), `${baseName}-report.html`, 'text/html')
+        break
     }
     addToast(`Exported as ${format.toUpperCase()}`, 'success')
     setOpen(false)
@@ -151,7 +155,7 @@ export function ExportButtons({ result, healthScore, fileName }: ExportButtonsPr
             minWidth: 140,
           }}
         >
-          {(['json', 'csv', 'markdown'] as const).map((fmt) => (
+          {(['json', 'csv', 'markdown', 'html'] as const).map((fmt) => (
             <button
               key={fmt}
               onClick={() => handleExport(fmt)}
