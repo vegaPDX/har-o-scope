@@ -1,0 +1,73 @@
+# Example: har-o-scope CI/CD Performance Gate
+#
+# This workflow analyzes a HAR capture after deployment
+# and uploads findings to GitHub's code scanning dashboard.
+#
+# Prerequisites:
+# - A HAR capture from your deployment (e.g., from Playwright or Puppeteer)
+# - A baseline HAR to compare against (optional but recommended)
+#
+# Exit codes:
+#   0 = No issues at or above threshold
+#   1 = Warning-level findings
+#   2 = Critical findings or health score below threshold
+
+name: HAR Analysis
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write  # Required for SARIF upload
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Step 1: Capture a HAR file from your app
+      # Replace this with your actual capture step (Playwright, Puppeteer, etc.)
+      # Example with Playwright:
+      #
+      # - name: Capture HAR
+      #   run: |
+      #     npx playwright test --project=har-capture
+      #     # Assumes your test saves to captures/current.har
+
+      # Step 2: Analyze the HAR file
+      - name: Analyze HAR
+        run: |
+          npx har-o-scope analyze captures/current.har \
+            --format text \
+            --threshold 50
+        continue-on-error: true
+
+      # Step 3: Upload SARIF to GitHub Security tab
+      - name: Generate SARIF
+        run: |
+          npx har-o-scope analyze captures/current.har \
+            --sarif > results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: har-analysis
+
+      # Step 4 (optional): Compare against baseline
+      # Keep a baseline.har in your repo representing acceptable performance
+      - name: Regression check
+        if: hashFiles('captures/baseline.har') != ''
+        run: |
+          npx har-o-scope analyze captures/current.har \
+            --baseline captures/baseline.har \
+            --threshold 50 \
+            --ci
